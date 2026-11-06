@@ -50,7 +50,6 @@ USERS = {
 
 MAX_PARALLEL_WORKERS = 5
 SAFE_JITTER_SECONDS = (0.15, 0.35)
-global_cache = {}
 
 
 def create_session_token(username: str) -> str:
@@ -107,29 +106,13 @@ def check_single_imei(idx: int, raw_input: str) -> dict:
     # Safe worker jitter to avoid burst synchronization
     time.sleep(random.uniform(*SAFE_JITTER_SECONDS))
 
-    cached_info = global_cache.get(f"info:{imei}")
-    cached_act = global_cache.get(f"act:{imei}")
+    # Always perform 100% fresh live requests to ZTE APIs in parallel (no cache)
+    with ThreadPoolExecutor(max_workers=2) as sub_exec:
+        fut_info = sub_exec.submit(Main1.get_device_info, imei)
+        fut_act = sub_exec.submit(Main1.get_activation_date, imei)
 
-    info_status, info = ("ok" if cached_info else "error"), cached_info
-    act_status, act = ("ok" if cached_act else "error"), cached_act
-
-    need_info = not cached_info
-    need_act = not cached_act
-
-    if need_info or need_act:
-        with ThreadPoolExecutor(max_workers=2) as sub_exec:
-            fut_info = sub_exec.submit(Main1.get_device_info, imei) if need_info else None
-            fut_act = sub_exec.submit(Main1.get_activation_date, imei) if need_act else None
-
-            if fut_info:
-                info_status, info = fut_info.result()
-                if info_status == "ok":
-                    global_cache[f"info:{imei}"] = info
-
-            if fut_act:
-                act_status, act = fut_act.result()
-                if act_status == "ok":
-                    global_cache[f"act:{imei}"] = act
+        info_status, info = fut_info.result()
+        act_status, act = fut_act.result()
 
     if info_status == "error" or act_status == "error":
         reason = info if info_status == "error" else act

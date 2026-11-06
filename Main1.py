@@ -317,7 +317,7 @@ def find_pending(ws, rechecked_this_session):
     return pending
 
 
-def process_row(ws, row_num, raw, fails, rechecked_this_session, cache):
+def process_row(ws, row_num, raw, fails, rechecked_this_session):
     key = (row_num, raw)
     imei = clean_imei(raw)
 
@@ -329,31 +329,13 @@ def process_row(ws, row_num, raw, fails, rechecked_this_session, cache):
         print(f"  row {row_num}: {raw!r} -> Invalid IMEI")
         return
 
-    # Check cache first
-    cached_info = cache.get(f"info:{imei}")
-    cached_act = cache.get(f"act:{imei}")
+    # Always perform 100% fresh live requests to ZTE APIs in parallel (no cache)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        fut_info = executor.submit(get_device_info, imei)
+        fut_act = executor.submit(get_activation_date, imei)
 
-    info_status, info = "ok" if cached_info else "error", cached_info
-    act_status, act = "ok" if cached_act else "error", cached_act
-
-    # Fetch uncached endpoints in parallel
-    need_info = not cached_info
-    need_act = not cached_act
-
-    if need_info or need_act:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            fut_info = executor.submit(get_device_info, imei) if need_info else None
-            fut_act = executor.submit(get_activation_date, imei) if need_act else None
-
-            if fut_info:
-                info_status, info = fut_info.result()
-                if info_status == "ok":
-                    cache[f"info:{imei}"] = info
-
-            if fut_act:
-                act_status, act = fut_act.result()
-                if act_status == "ok":
-                    cache[f"act:{imei}"] = act
+        info_status, info = fut_info.result()
+        act_status, act = fut_act.result()
 
     if info_status == "error" or act_status == "error":
         reason = info if info_status == "error" else act
@@ -406,7 +388,6 @@ def main():
 
     rechecked_this_session = set()
     fails = {}
-    cache = {}
     print(f"Watching the sheet every {POLL_SECONDS}s. Press Ctrl+C to stop.")
 
     while True:
@@ -416,7 +397,7 @@ def main():
                 print(f"{time.strftime('%H:%M:%S')}  {len(pending)} row(s) to check")
             for row_num, raw in pending:
                 try:
-                    process_row(ws, row_num, raw, fails, rechecked_this_session, cache)
+                    process_row(ws, row_num, raw, fails, rechecked_this_session)
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:

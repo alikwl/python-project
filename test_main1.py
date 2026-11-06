@@ -225,9 +225,8 @@ class TestMain1(unittest.TestCase):
 
         fails = {}
         rechecked = set()
-        cache = {}
 
-        Main1.process_row(mock_ws, 2, "866627081977061", fails, rechecked, cache)
+        Main1.process_row(mock_ws, 2, "866627081977061", fails, rechecked)
 
         self.assertIn((2, "866627081977061"), rechecked)
         self.assertEqual(fails, {})
@@ -235,9 +234,6 @@ class TestMain1(unittest.TestCase):
             values=[["866627081977061", "866627082977060", "A36", "2026-08-26"]],
             range_name="B2:E2"
         )
-        # Check cache
-        self.assertEqual(cache["info:866627081977061"]["model"], "A36")
-        self.assertEqual(cache["act:866627081977061"], "2026-08-26")
 
     @patch("Main1.get_device_info")
     @patch("Main1.get_activation_date")
@@ -248,9 +244,8 @@ class TestMain1(unittest.TestCase):
 
         fails = {(2, "866627081977061"): 2} # Attempt 3
         rechecked = set()
-        cache = {}
 
-        Main1.process_row(mock_ws, 2, "866627081977061", fails, rechecked, cache)
+        Main1.process_row(mock_ws, 2, "866627081977061", fails, rechecked)
 
         self.assertIn((2, "866627081977061"), rechecked)
         self.assertNotIn((2, "866627081977061"), fails)
@@ -264,9 +259,8 @@ class TestMain1(unittest.TestCase):
 
         fails = {}
         rechecked = set()
-        cache = {}
 
-        Main1.process_row(mock_ws, 5, "not_an_imei", fails, rechecked, cache)
+        Main1.process_row(mock_ws, 5, "not_an_imei", fails, rechecked)
 
         self.assertIn((5, "not_an_imei"), rechecked)
         mock_ws.update.assert_called_with(
