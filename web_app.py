@@ -765,7 +765,7 @@ async def check_stream(req: Request):
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 7860))
     print("\n=======================================================")
     print("  Device Verification Portal running on:")
     print(f"  --> http://localhost:{port}")
